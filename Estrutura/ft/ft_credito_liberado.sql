@@ -1,12 +1,12 @@
 CREATE TABLE dw.ft_credito_liberado (
     id_credito SERIAL PRIMARY KEY,
-    chave_natural VARCHAR(100) NOT NULL, -- ex: nr_contrato + data_contratacao + cd_filial + cd_pessoa + data_inclusao
+    chave_natural VARCHAR(100) NOT NULL, 
     nr_contrato VARCHAR(20) NOT NULL,
     vl_credito NUMERIC(12,2) NOT NULL,
     vl_juros NUMERIC(10,2) NOT NULL,
     vl_parcela NUMERIC(10,2) NOT NULL,
     qtd_parcelas INT NOT NULL,
-    tipo_credito varchar(50) NOT NULL, --- Vem da dim_produto / denormalização
+    tipo_credito varchar(50) NOT NULL, 
     cd_produto char(8) NOT NULL,
     cd_filial CHAR(5) NOT NULL,
     cd_pessoa CHAR(7) NOT NULL,

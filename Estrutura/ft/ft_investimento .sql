@@ -1,8 +1,8 @@
 CREATE TABLE dw.ft_investimento (
     id_investimento SERIAL PRIMARY KEY,
-    chave_natural VARCHAR(100) NOT NULL, -- ex: nr_aplicacao + cd_filial + data_aplicacao + cd_produto + data_inclusao
+    chave_natural VARCHAR(100) NOT NULL, 
     nr_aplicacao VARCHAR(20) NOT NULL,
-    tipo_investimento VARCHAR(30) NOT NULL, -- ex: CDB, LCI, ações / Vem da dim_produto
+    tipo_investimento VARCHAR(30) NOT NULL, 
     vl_aplicado NUMERIC(12,2) NOT NULL,
     vl_rendimento NUMERIC(10,2),
     vl_resgate NUMERIC(12,2),

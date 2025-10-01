@@ -7,6 +7,7 @@ CREATE TABLE staging.dim_pessoa_raw (
     contato         TEXT,
     salario         TEXT,
     estado          TEXT,
+    cidade			TEXT,
     sigla_estado    TEXT,
     cd_filial       TEXT,
     versao          INT,

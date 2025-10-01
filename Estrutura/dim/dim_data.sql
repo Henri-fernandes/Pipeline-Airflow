@@ -1,20 +1,20 @@
 CREATE TABLE dw.dim_data (
-    data_id VARCHAR(20) PRIMARY KEY,   -- formato 20.060.318.
+    data_id VARCHAR(20) PRIMARY KEY,   
     data DATE NOT NULL,
     ano INT NOT NULL,
     semestre INT NOT NULL,
     trimestre INT NOT NULL,
     mes INT NOT NULL,
     nome_mes VARCHAR(20) NOT NULL,
-    abrev_mes CHAR(3) NOT NULL,        -- JAN, FEV, MAR...
+    abrev_mes CHAR(3) NOT NULL,        
     dia_mes INT NOT NULL,
-    num_dia_semana INT NOT NULL,    -- 1=Segunda, 7=Domingo
+    num_dia_semana INT NOT NULL,    
     dia_semana VARCHAR(20) NOT NULL,
-    abrev_dia_semana CHAR(3) NOT NULL, -- SEG, TER, QUA...
-    final_semana CHAR(1) NOT NULL,  -- "S" ou "N"
-    dia_util CHAR(1) NOT NULL,      -- "S" ou "N"
-    ano_mes CHAR(7) NOT NULL,          -- AAAAMM
-    semana_mes INT NOT NULL,           -- 1..5
+    abrev_dia_semana CHAR(3) NOT NULL, 
+    final_semana CHAR(1) NOT NULL,  
+    dia_util CHAR(1) NOT NULL,     
+    ano_mes CHAR(7) NOT NULL,          
+    semana_mes INT NOT NULL,           
     dias_uteis INT,
     ultimo_dia_util DATE
 );
