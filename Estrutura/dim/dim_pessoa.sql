@@ -1,5 +1,5 @@
 CREATE TABLE dw.dim_pessoa (
-    id_pessoa SERIAL PRIMARY KEY,       
+    id_pessoa serial primary key,       
     nome_pessoa varchar (100) not null,
     cd_pessoa char (7) not null,
     nr_cpf char(11) not null,
@@ -12,12 +12,11 @@ CREATE TABLE dw.dim_pessoa (
     sigla_estado char(2) not null,
     cd_filial char (5) not null,
     versao int not null,                
-    ativo CHAR(1) DEFAULT 'S' CHECK (ativo IN ('S','N')),
-    dt_cadastro date not null,
-    dt_inicio date not null,
-    dt_fim date not null default '9999-12-31',
+    ativo char(1) default 'S' check (ativo IN ('S','N')),
+    dt_cadastro timestamp not null,
+    dt_inicio timestamp not null,
+    dt_fim timestamp not null default '9999-12-31',
     dt_modificacao timestamp not null default now(),
-    dt_referencia date not null,
     CONSTRAINT chk_datas CHECK (dt_fim >= dt_inicio),
     CONSTRAINT unq_nr_cpf_versao_cd_pessoa UNIQUE (nr_cpf, versao, cd_pessoa)
 )
