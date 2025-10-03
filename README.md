@@ -914,6 +914,9 @@ ou
 
 
 # 📧 **Contato**
->
->**Henrico Fernandes** - [LinkedIn](https://www.linkedin.com/in/henricofernandes/) - fernandes.henri2020@gmail.com
+
+>**Henrico Fernandes**
+> - [LinkedIn](https://www.linkedin.com/in/henricofernandes/) 
+> - [Portfólio](https://henri-fernandes.github.io/Portf-lio-Profissional-/)
+>- Gmail: fernandes.henri2020@gmail.com
 
