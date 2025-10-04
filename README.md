@@ -797,22 +797,31 @@ git clone https://github.com/Henri-fernandes/Pipeline-Airflow.git
 
 # **📸 Exemplos Visuais**
 
-## 🌀 Airflow UI - DAGs 
+## 🌀 Airflow UI - Home 
 
-Onde vai ficar a foto
+<img width="1340" height="633" alt="Image" src="https://github.com/user-attachments/assets/6dc63924-f608-4d2d-887c-cdbc816c013e" />
+
+## 🌀 Airflow UI - Dag 
+
+<img width="1364" height="630" alt="Image" src="https://github.com/user-attachments/assets/b47207d1-230c-4b41-a64a-9cf90009a661" />
 
 ## 🌀 Airflow UI - Fluxo 
 
-Onde vai ficar a foto
+<img width="1362" height="636" alt="Image" src="https://github.com/user-attachments/assets/9a210fd8-b037-4451-83ba-dd5e8bc73fb5" />
 
+## 📊 Estrutura dos Schemas
 
-## 📊 Estrutura do Data Warehouse
+<img width="231" height="184" alt="Image" src="https://github.com/user-attachments/assets/3ad9ea46-748a-4a57-a3c4-5627786d1377" />
 
-Onde vai ficar a foto
+<img width="254" height="163" alt="Image" src="https://github.com/user-attachments/assets/24594096-bb98-43c1-9a7f-66dfce8e8565" />
 
-## 📊 Tabela `dw.dim_filial`
+<img width="187" height="94" alt="Image" src="https://github.com/user-attachments/assets/3e2785aa-f102-4cb5-9fd7-8ed57c12e5da" />
 
-Onde vai ficar a foto
+## 📊 Tabelas `dim_filial`
+
+<img width="259" height="268" alt="Image" src="https://github.com/user-attachments/assets/4c01f9c1-061a-4a7a-92bb-e310bdb0335c" />
+<img width="273" height="252" alt="Image" src="https://github.com/user-attachments/assets/198521e4-13ac-448b-8f54-50037706f09f" />
+<img width="266" height="199" alt="Image" src="https://github.com/user-attachments/assets/c0e33e80-a734-4d01-a70a-79a97dbd150e" />
 
 ## 🆗Execução
 
