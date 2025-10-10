@@ -13,10 +13,11 @@ def gerar_dados_ft_seguro(ti):
     conn = hook.get_conn()
     cur = conn.cursor()
 
-    # Buscar entidades ativas
+    # Busca pessoas ativas
     cur.execute("SELECT cd_pessoa FROM dw.dim_pessoa WHERE ativo = 'S'")
     pessoas = [r[0] for r in cur.fetchall()]
 
+    # Busca produtos da categoria Seguro
     cur.execute("""
         SELECT cd_produto, nm_produto
         FROM dw.dim_produto 
@@ -24,15 +25,18 @@ def gerar_dados_ft_seguro(ti):
     """)
     produtos = cur.fetchall()
 
+    # Busca filiais ativas
     cur.execute("SELECT cd_filial FROM dw.dim_filial WHERE ativo = 'S'")
     filiais = [r[0] for r in cur.fetchall()]
 
+    # Busca chaves naturais já existentes para evitar duplicidade
     cur.execute("SELECT chave_natural FROM dw.ft_seguro")
     chaves_existentes = set(r[0] for r in cur.fetchall())
 
     dados = []
     tentativas = 0
 
+    # Gera até 500 registros únicos com no máximo 2000 tentativas
     while len(dados) < 500 and tentativas < 2000:
         tentativas += 1
 
@@ -45,6 +49,7 @@ def gerar_dados_ft_seguro(ti):
         dt_inicio = dt_contratacao + timedelta(days=random.randint(0, 10))
         dt_inclusao = datetime.now()
 
+        # Função para simular sujeira nos dados (espaços, vírgulas, etc.)
         def sujar(valor):
             return random.choice([
                 f" {valor} ",
@@ -79,10 +84,12 @@ def gerar_dados_ft_seguro(ti):
             'ativo': 'S'
         })
 
+    # Compartilha os dados com a próxima task via XCom
     ti.xcom_push(key='seguros_brutos', value=dados)
     cur.close()
     conn.close()
 
+# Insere os dados gerados na tabela staging.ft_seguro_raw
 def inserir_staging_ft_seguro(ti):
     hook = PostgresHook(postgres_conn_id='postgres_dw_pipeline')
     conn = hook.get_conn()
@@ -107,12 +114,14 @@ def inserir_staging_ft_seguro(ti):
     cur.close()
     conn.close()
 
+# DAG que orquestra a geração de dados sintéticos para a fato seguro
 with DAG(
     dag_id='GR_ft_seguro_dag',
     start_date=datetime(2025, 9, 29),
     schedule=None,
     catchup=False,
-    tags=['ft_seguro']
+    tags=['ft_seguro'],
+    description='Geração de dados sintéticos para a fato seguro com sujeira simulada'
 ) as dag:
 
     inicio = EmptyOperator(task_id='inicio')

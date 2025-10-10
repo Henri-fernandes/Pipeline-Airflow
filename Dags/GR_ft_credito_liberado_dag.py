@@ -13,9 +13,11 @@ def gerar_dados_ft_credito_liberado(ti):
     conn = hook.get_conn()
     cur = conn.cursor()
 
+    # Busca pessoas ativas
     cur.execute("SELECT cd_pessoa FROM dw.dim_pessoa WHERE ativo = 'S'")
     pessoas = [r[0] for r in cur.fetchall()]
 
+    # Busca produtos da categoria Crédito
     cur.execute("""
         SELECT cd_produto, nm_produto
         FROM dw.dim_produto 
@@ -23,18 +25,22 @@ def gerar_dados_ft_credito_liberado(ti):
     """)
     produtos = cur.fetchall()
 
+    # Busca filiais ativas
     cur.execute("SELECT cd_filial FROM dw.dim_filial WHERE ativo = 'S'")
     filiais = [r[0] for r in cur.fetchall()]
 
+    # Busca contas válidas para crédito
     cur.execute("""
-        select * FROM dw.dim_conta 
+        SELECT cd_conta FROM dw.dim_conta 
         WHERE dt_fim = '9999-12-31'
-        and tipo_conta in ('CRÉDITO', 'POUPANÇA')
-        and situacao in ('ATIVA' , 'BLOQUEADA')
+        AND tipo_conta IN ('CRÉDITO', 'POUPANÇA')
+        AND situacao IN ('ATIVA', 'BLOQUEADA')
     """)
     contas = [r[0] for r in cur.fetchall()]
 
     dados = []
+
+    # Gera 500 registros simulados de crédito liberado
     for _ in range(500):
         cd_pessoa = random.choice(pessoas)
         cd_produto, tipo_credito = random.choice(produtos)
@@ -46,6 +52,7 @@ def gerar_dados_ft_credito_liberado(ti):
         dt_inicio = dt_contratacao + timedelta(days=random.randint(1, 10))
         dt_inclusao = datetime.now()
 
+        # Função para simular sujeira nos dados (espaços, vírgulas, etc.)
         def sujar(v):
             v_str = str(v)
             return random.choice([
@@ -54,7 +61,7 @@ def gerar_dados_ft_credito_liberado(ti):
                 f"  {v_str}",
                 v_str.replace(".", ","),
                 v_str
-             ])
+            ])
 
         vl_credito = sujar(f"{random.uniform(1000, 50000):.4f}")
         vl_juros = sujar(f"{random.uniform(1.5, 20.0):.3f}")
@@ -84,6 +91,7 @@ def gerar_dados_ft_credito_liberado(ti):
     cur.close()
     conn.close()
 
+# Insere os dados gerados na tabela staging.ft_credito_liberado_raw
 def inserir_staging_ft_credito_liberado(ti):
     hook = PostgresHook(postgres_conn_id='postgres_dw_pipeline')
     conn = hook.get_conn()
@@ -108,12 +116,14 @@ def inserir_staging_ft_credito_liberado(ti):
     cur.close()
     conn.close()
 
+# DAG que orquestra a geração de dados sintéticos para a fato crédito liberado
 with DAG(
     dag_id='GR_ft_credito_liberado_dag',
     start_date=datetime(2025, 9, 29),
     schedule=None,
     catchup=False,
-    tags=['ft_credito_liberado']
+    tags=['ft_credito_liberado'],
+    description='Geração de dados sintéticos para a fato crédito liberado com sujeira simulada'
 ) as dag:
 
     inicio = EmptyOperator(task_id='inicio')

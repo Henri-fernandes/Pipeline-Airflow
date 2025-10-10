@@ -11,6 +11,7 @@ def atualizar_dados_dim_filial(ti):
     conn = hook.get_conn()
     cur = conn.cursor()
 
+    # Busca todas as filiais ativas no momento
     cur.execute("""
         SELECT cd_filial, nm_filial, nr_cnpj, estado, cidade,
                versao, dt_fundacao
@@ -19,17 +20,21 @@ def atualizar_dados_dim_filial(ti):
     """)
     filiais = cur.fetchall()
 
-    dados = []
-    eventos = []
+    dados = []     # Lista de filiais que serão atualizadas
+    eventos = []   # Lista de alterações para registrar na tabela de eventos
+
+    # Listas de cidades e estados para simular mudanças
     cidades_alternativas = ["Goiânia", "Campinas", "Uberlândia", "Niterói", "Joinville"]
     estados_alternativos = ["SP", "RJ", "MG", "RS", "PR"]
 
     for f in filiais:
         cd_filial, nm_filial, nr_cnpj, estado, cidade, versao, dt_fundacao = f
 
+        # Define se a filial será alterada ou encerrada
         alterar = random.random() < 0.8
         encerrar = random.random() < 0.09
 
+        # Se for encerrada, atualiza diretamente na tabela principal
         if encerrar:
             cur.execute("""
                 UPDATE dw.dim_filial
@@ -38,12 +43,12 @@ def atualizar_dados_dim_filial(ti):
             """, (cd_filial,))
             continue
 
+        # Se for alterada, escolhe novos valores e registra evento
         if alterar:
             nova_cidade = random.choice([c for c in cidades_alternativas if c != cidade])
             novo_estado = random.choice([e for e in estados_alternativos if e != estado])
             novo_nome = nm_filial.strip()
 
-            # Gerar eventos
             if nova_cidade != cidade:
                 eventos.append((cd_filial, 'cidade', cidade, nova_cidade))
             if novo_estado != estado:
@@ -68,21 +73,23 @@ def atualizar_dados_dim_filial(ti):
                 'dt_modificacao': None,
             })
 
-    # Inserir eventos na tabela evt.ev_dim_filial
+    # Registra os eventos de alteração na tabela de auditoria
     for ev in eventos:
         cur.execute("""
             INSERT INTO evt.ev_dim_filial (
-                cd_filial, campo_alterado, valor_anterior, valor_novo,
+                cd_filial, campo_alterado, valor_novo, valor_anterior,
                 tipo_evento, data_evento, origem
-            ) VALUES (%s, %s, %s, %s, 'ALTERACAO', CURRENT_DATE, 'simulador')
-        """, ev)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, ev + ('ALTERACAO', datetime.now(), 'PYTHON'))
 
     conn.commit()
     cur.close()
     conn.close()
 
+    # Compartilha os dados com a próxima task via XCom
     ti.xcom_push(key='dados_filial', value=dados)
 
+# Essa função insere os dados atualizados na camada staging
 def inserir_staging_dim_filial(ti):
     hook = PostgresHook(postgres_conn_id='postgres_dw_pipeline')
     conn = hook.get_conn()
@@ -106,12 +113,14 @@ def inserir_staging_dim_filial(ti):
     cur.close()
     conn.close()
 
+# DAG que orquestra a atualização mensal da dimensão filial
 with DAG(
     dag_id='AT_dim_filial_dag',
     start_date=datetime(2025, 9, 19),
     schedule='@monthly',
     catchup=False,
-    tags=['dim', 'filial', 'atualizacao', 'eventos']
+    tags=['dim', 'filial', 'atualizacao', 'eventos'],
+    description='Atualiza a dimensão filial com simulação de alterações e rastreamento de eventos'
 ) as dag:
 
     inicio = EmptyOperator(task_id='inicio')

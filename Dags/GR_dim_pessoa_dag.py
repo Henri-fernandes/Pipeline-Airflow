@@ -7,8 +7,8 @@ from datetime import datetime
 from faker import Faker
 import random
 
+# Função auxiliar para buscar todas as filiais ativas no banco
 def buscar_filiais_existentes():
-    """Busca todas as filiais existentes no banco"""
     hook = PostgresHook(postgres_conn_id='postgres_dw_pipeline')
     conn = hook.get_conn()
     cur = conn.cursor()
@@ -21,8 +21,12 @@ def buscar_filiais_existentes():
     
     return filiais
 
+# Geração de dados sintéticos para a dimensão pessoa
+# Cada pessoa gerada tem variações realistas de nome, CPF, e localização
 def gerar_dados_dim_pessoa(ti):
     fake = Faker('pt_BR')
+
+    # Lista de capitais brasileiras para simular cidade e estado
     capitais_brasil = [
         {"cidade": "Rio Branco", "estado": "Acre", "sigla": "AC"},
         {"cidade": "Maceió", "estado": "Alagoas", "sigla": "AL"},
@@ -53,49 +57,49 @@ def gerar_dados_dim_pessoa(ti):
         {"cidade": "Palmas", "estado": "Tocantins", "sigla": "TO"}
     ]
 
-    # Buscar filiais existentes
+    # Verifica se há filiais disponíveis para associar às pessoas
     filiais_existentes = buscar_filiais_existentes()
-    
     if not filiais_existentes:
         raise ValueError("Nenhuma filial encontrada no banco. Verifique a tabela dim_filial.")
 
     dados = []
+
+    # Gera 1000 registros de pessoas com dados variados
     for i in range(1, 1001):
-        # Nome da pessoa com chance de espaços extras
         nome = fake.name()
+
+        # 20% de chance de gerar nome com espaços extras ou formatação estranha
         if random.random() < 0.2:
-            opcoes = [
+            nome = random.choice([
                 nome + " " * random.randint(1, 5),
                 " " * random.randint(1, 5) + nome,
                 " " * random.randint(1, 3) + nome + " " * random.randint(1, 3),
                 nome.replace(" ", "  "),
                 f" {nome} . ",
-            ]
-            nome = random.choice(opcoes)
+            ])
 
-        # CPF com formatos variados
+        # CPF com variações de formato
         cpf_base = fake.cpf()
-        formatos = [
-            cpf_base,  
-            cpf_base.replace(".", "").replace("-", ""),  
-            cpf_base.replace(".", "/").replace("-", "/"),  
-            cpf_base.replace(".", "_").replace("-", "_"),  
-            cpf_base.replace(".", " ").replace("-", " "),  
-        ]
-        cpf = random.choice(formatos)
-        cd_pessoa = f"{random.randint(1, 9999999):07d}" 
+        cpf = random.choice([
+            cpf_base,
+            cpf_base.replace(".", "").replace("-", ""),
+            cpf_base.replace(".", "/").replace("-", "/"),
+            cpf_base.replace(".", "_").replace("-", "_"),
+            cpf_base.replace(".", " ").replace("-", " ")
+        ])
+
+        # Código da pessoa gerado como número aleatório formatado
+        cd_pessoa = f"{random.randint(1, 9999999):07d}"
 
         # Email com chance de espaços extras
         email = fake.email()
         if random.random() < 0.05:
-            opcoes_email = [
+            email = random.choice([
                 email + " " * random.randint(1, 3),
                 " " * random.randint(1, 3) + email,
                 " " * random.randint(1, 2) + email + " " * random.randint(1, 2)
-            ]
-            email = random.choice(opcoes_email)
+            ])
 
-        # Selecionar filial aleatória das existentes
         cd_filial = random.choice(filiais_existentes)
         contato = fake.phone_number()
         salario = round(random.uniform(1200, 250000), 2)
@@ -123,8 +127,10 @@ def gerar_dados_dim_pessoa(ti):
             'dt_modificacao': None
         })
 
+    # Compartilha os dados com a próxima task via XCom
     ti.xcom_push(key='dados_pessoa', value=dados)
 
+# Insere os dados gerados na tabela staging.dim_pessoa_raw
 def insert_dados_staging_dim_pessoa(ti):
     hook = PostgresHook(postgres_conn_id='postgres_dw_pipeline')
     conn = hook.get_conn()
@@ -149,12 +155,14 @@ def insert_dados_staging_dim_pessoa(ti):
     cur.close()
     conn.close()
 
+# DAG que orquestra a geração de dados sintéticos para a dimensão pessoa
 with DAG(
     dag_id='GR_dim_pessoa_dag',
     start_date=datetime(2025, 9, 22),
     schedule=None,
     catchup=False,
-    tags=['dim_pessoa']
+    tags=['dim_pessoa'],
+    description='Geração de dados sintéticos para a dimensão pessoa com variações realistas'
 ) as dag:
     
     inicio = EmptyOperator(task_id='inicio')
@@ -169,6 +177,7 @@ with DAG(
         python_callable=insert_dados_staging_dim_pessoa
     )
 
+    # Executa o ETL SQL que trata os dados inseridos na staging
     etl = SQLExecuteQueryOperator(
         task_id='etl_dim_pessoa_sql',
         conn_id='postgres_dw_pipeline',
@@ -177,4 +186,5 @@ with DAG(
 
     fim = EmptyOperator(task_id='finalizado')
 
+    # Define a ordem de execução das tasks no DAG
     inicio >> gerar >> insert_staging >> etl >> fim

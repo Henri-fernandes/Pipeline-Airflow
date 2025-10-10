@@ -11,6 +11,7 @@ def atualizar_dim_pessoa(ti):
     conn = hook.get_conn()
     cur = conn.cursor()
 
+    # Busca todas as pessoas ativas no momento
     cur.execute(""" 
         SELECT cd_pessoa, nome_pessoa, nr_cpf, estado, cidade, versao, dt_cadastro
         FROM dw.dim_pessoa
@@ -18,17 +19,21 @@ def atualizar_dim_pessoa(ti):
     """)
     pessoas = cur.fetchall()
 
-    dados = []
-    eventos = []
+    dados = []     # Lista de pessoas que serão atualizadas
+    eventos = []   # Lista de alterações para registrar na tabela de eventos
+
+    # Listas de cidades e estados para simular mudanças
     cidades_alternativas = ["Goiânia", "Campinas", "Uberlândia", "Niterói", "Joinville"]
     estados_alternativos = ["SP", "RJ", "MG", "RS", "PR"]
 
     for pessoa in pessoas:
         cd_pessoa, nome_pessoa, nr_cpf, estado, cidade, versao, dt_cadastro = pessoa
 
+        # Define se a pessoa será alterada ou encerrada
         alterar = random.random() < 0.8
         encerrar = random.random() < 0.09 
 
+        # Se for encerrada, atualiza diretamente na tabela principal
         if encerrar:
             cur.execute(""" 
                 UPDATE dw.dim_pessoa
@@ -37,12 +42,12 @@ def atualizar_dim_pessoa(ti):
             """, (cd_pessoa,))
             continue 
 
+        # Se for alterada, escolhe novos valores e registra evento
         if alterar:
             nova_cidade = random.choice([c for c in cidades_alternativas if c != cidade])
             novo_estado = random.choice([e for e in estados_alternativos if e != estado])
             novo_nome = nome_pessoa.strip()
 
-            # Gerar eventos
             if nova_cidade != cidade:
                 eventos.append((cd_pessoa, 'cidade', cidade, nova_cidade))
             if novo_estado != estado:
@@ -67,21 +72,23 @@ def atualizar_dim_pessoa(ti):
                 'dt_modificacao': None,
             })
 
-    # Inserir eventos na tabela evt.ev_dim_pessoa
+    # Registra os eventos de alteração na tabela de auditoria
     for ev in eventos:
         cur.execute("""
             INSERT INTO evt.ev_dim_pessoa (
                 cd_pessoa, campo_alterado, valor_anterior, valor_novo,
                 tipo_evento, data_evento, origem
-            ) VALUES (%s, %s, %s, %s, 'ALTERACAO', CURRENT_DATE, 'simulador')
-        """, ev)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, ev + ('ALTERACAO', datetime.now(), 'PYTHON'))
 
     conn.commit()
     cur.close()
     conn.close()
 
+    # Compartilha os dados com a próxima task via XCom
     ti.xcom_push(key='dados_pessoa', value=dados)
 
+# Essa função insere os dados atualizados na camada staging
 def insert_staging_dim_pessoa(ti):
     hook = PostgresHook(postgres_conn_id='postgres_dw_pipeline')
     conn = hook.get_conn()
@@ -105,12 +112,14 @@ def insert_staging_dim_pessoa(ti):
     cur.close()
     conn.close()
 
+# DAG que orquestra a atualização mensal da dimensão pessoa
 with DAG(
     dag_id='AT_dim_pessoa_dag',
     start_date=datetime(2025, 9, 22),
     schedule='@monthly',
     catchup=False,
-    tags=['dim_pessoa', 'eventos']
+    tags=['dim_pessoa', 'eventos'],
+    description='Atualiza a dimensão pessoa com simulação de alterações e rastreamento de eventos'
 ) as dag:
     
     inicio = EmptyOperator(task_id='inicio')

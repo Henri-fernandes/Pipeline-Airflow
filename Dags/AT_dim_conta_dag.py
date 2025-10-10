@@ -11,11 +11,11 @@ def atualizar_dados_dim_conta(ti):
     conn = hook.get_conn()
     cur = conn.cursor()
 
-    # Buscar filiais válidas
+    # Pega todas as filiais ativas para usar nas simulações
     cur.execute("SELECT cd_filial FROM dw.dim_filial WHERE ativo = 'S'")
     filiais_validas = [row[0] for row in cur.fetchall()]
 
-    # Buscar versão mais recente de cada conta e pessoa associada
+    # Busca a versão mais recente de cada conta junto com os dados da pessoa
     cur.execute("""
         SELECT DISTINCT ON (c.cd_conta)
             c.cd_conta, c.cd_pessoa, c.cd_filial, c.tipo_conta, c.situacao,
@@ -26,7 +26,7 @@ def atualizar_dados_dim_conta(ti):
     """)
     contas = cur.fetchall()
 
-    # Buscar pessoas ativas sem conta
+    # Identifica pessoas ativas que ainda não têm conta
     cur.execute("""
         SELECT DISTINCT ON (p.cd_pessoa) 
             p.cd_pessoa, p.nr_cpf, p.cd_filial
@@ -40,15 +40,15 @@ def atualizar_dados_dim_conta(ti):
     """)
     pessoas_sem_conta = cur.fetchall()
 
-    dados = []
-    eventos = []
+    dados = []     # Aqui vamos guardar os registros que serão inseridos na staging
+    eventos = []   # Aqui ficam os eventos que serão registrados na tabela de auditoria
 
-    # 1. Processar contas existentes
+    # Para cada conta, aplicamos as regras de negócio
     for c in contas:
         cd_conta, cd_pessoa, cd_filial, tipo_conta, situacao, versao, dt_abertura, nr_cpf, pessoa_ativa = c
         nova_versao = versao + 1
-        
-        # Encerrar conta se pessoa estiver inativa
+
+        # Se a pessoa está inativa e a conta ainda não foi encerrada, encerramos agora
         if pessoa_ativa == 'N' and situacao.upper() != 'ENCERRADA':
             dados.append({
                 'cd_conta': cd_conta,
@@ -67,7 +67,7 @@ def atualizar_dados_dim_conta(ti):
             eventos.append((cd_conta, 'situacao', situacao, 'ENCERRADA'))
             continue
 
-        # Mudança de filial para contas ativas (10% de chance)
+        # Se a conta está ativa, existe uma chance de 10% de trocar a filial
         if pessoa_ativa == 'S' and situacao.upper() != 'ENCERRADA':
             trocar_filial = random.random() < 0.1
             if trocar_filial:
@@ -88,11 +88,11 @@ def atualizar_dados_dim_conta(ti):
                 })
                 eventos.append((cd_conta, 'cd_filial', cd_filial, nova_filial))
 
-    # 2. Criar contas para pessoas ativas sem conta
+    # Para cada pessoa ativa sem conta, criamos uma conta nova
     for p in pessoas_sem_conta:
         cd_pessoa, nr_cpf, cd_filial = p
         cd_conta = f"{cd_pessoa}COR"
-        
+
         dados.append({
             'cd_conta': cd_conta,
             'chave_natural': None,
@@ -108,21 +108,23 @@ def atualizar_dados_dim_conta(ti):
             'cd_filial': cd_filial
         })
 
-    # Inserir eventos
+    # Registra os eventos de alteração na tabela de auditoria
     for ev in eventos:
         cur.execute("""
             INSERT INTO evt.ev_dim_conta (
-                cd_conta, campo_alterado, valor_antigo, valor_novo,
-                tipo_evento, data_evento, origem_evento
-            ) VALUES (%s, %s, %s, %s, 'ALTERACAO', CURRENT_DATE, 'atualizador')
-        """, ev)
+                cd_conta, campo_alterado, valor_anterior, valor_novo,
+                tipo_evento, data_evento, origem
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, ev + ('ALTERACAO', datetime.now(), 'PYTHON'))
 
     conn.commit()
     cur.close()
     conn.close()
 
+    # Compartilha os dados com a próxima task via XCom
     ti.xcom_push(key='dados_conta', value=dados)
 
+# Essa função insere os dados gerados na camada staging para posterior processamento
 def inserir_staging_dim_conta(ti):
     hook = PostgresHook(postgres_conn_id='postgres_dw_pipeline')
     conn = hook.get_conn()
@@ -146,13 +148,14 @@ def inserir_staging_dim_conta(ti):
     cur.close()
     conn.close()
 
+# DAG que orquestra o processo de atualização da dimensão conta
 with DAG(
     dag_id='AT_dim_conta_dag',
     start_date=datetime(2025, 9, 23),
     schedule='@monthly',
     catchup=False,
     tags=['dim', 'conta', 'atualizacao'],
-    description='Atualização da dimensão conta - encerra contas de pessoas inativas, cria contas para pessoas ativas e simula mudanças'
+    description='Atualiza a dimensão conta com base em regras de negócio simuladas'
 ) as dag:
 
     inicio = EmptyOperator(task_id='inicio')

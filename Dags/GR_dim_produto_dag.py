@@ -10,6 +10,7 @@ import random
 def gerar_dados_dim_produto(ti):
     fake = Faker('pt_BR')
 
+    # Mapeamento de produtos e suas respectivas categorias
     produtos_categoria = {
         "Conta Corrente": "Conta",
         "Conta Poupança": "Conta",
@@ -40,9 +41,11 @@ def gerar_dados_dim_produto(ti):
 
     dados = []
 
+    # Gera um registro para cada produto listado
     for i, nome_base in enumerate(produtos_categoria.keys(), start=1):
         cd_produto = f"{random.randint(1, 99999999):08d}"
 
+        # Simula variações no nome do produto
         nome = nome_base
         if random.random() < 0.5:
             nome = random.choice([
@@ -55,10 +58,7 @@ def gerar_dados_dim_produto(ti):
 
         categoria = produtos_categoria[nome_base]
         descricao = f"{nome.strip()} - Produto da categoria {categoria.lower()} oferecido pela instituição financeira."
-        
-        # Converter para string para evitar problemas de serialização
-        dt_inicio_obj = fake.date_between(start_date='-5y', end_date='today')
-        dt_inicio = dt_inicio_obj.strftime('%Y-%m-%d')
+        dt_inicio = fake.date_between(start_date='-5y', end_date='today').strftime('%Y-%m-%d')
 
         dados.append({
             'cd_produto': cd_produto,
@@ -71,37 +71,31 @@ def gerar_dados_dim_produto(ti):
             'dt_modificacao': None
         })
 
-    # Log para debug
     print(f"Dados gerados: {len(dados)} registros")
     print(f"Exemplo do primeiro registro: {dados[0] if dados else 'Nenhum dado gerado'}")
     
     ti.xcom_push(key='dados_produto', value=dados)
 
+# Insere os dados gerados na tabela staging.dim_produto_raw
 def inserir_staging_dim_produto(ti):
     hook = PostgresHook(postgres_conn_id='postgres_dw_pipeline')
     conn = hook.get_conn()
     cur = conn.cursor()
 
-    # Recuperar dados do XCom
     dados = ti.xcom_pull(key='dados_produto', task_ids='gerar_dados_dim_produto')
-    
-    # Log para debug
+
     print(f"Dados recuperados do XCom: {len(dados) if dados else 0} registros")
     if dados:
         print(f"Chaves do primeiro registro: {list(dados[0].keys())}")
         print(f"Primeiro registro completo: {dados[0]}")
 
-    # Verificar se dados foram recuperados
     if not dados:
         raise ValueError("Nenhum dado foi recuperado do XCom")
 
-    # Inserir dados no staging
     for i, row in enumerate(dados):
         try:
-            # Verificar se todas as chaves necessárias estão presentes
             required_keys = ['cd_produto', 'nm_produto', 'categoria', 'descricao', 'versao', 'dt_inicio', 'dt_fim', 'dt_modificacao']
             missing_keys = [key for key in required_keys if key not in row]
-            
             if missing_keys:
                 raise KeyError(f"Chaves ausentes no registro {i}: {missing_keys}")
             
@@ -120,7 +114,6 @@ def inserir_staging_dim_produto(ti):
                 row['dt_fim'], 
                 row['dt_modificacao']
             ))
-            
         except Exception as e:
             print(f"Erro ao inserir registro {i}: {e}")
             print(f"Conteúdo do registro: {row}")
@@ -132,12 +125,14 @@ def inserir_staging_dim_produto(ti):
     
     print(f"Inseridos {len(dados)} registros com sucesso")
 
+# DAG que orquestra a geração de dados sintéticos para a dimensão produto
 with DAG(
     dag_id='GR_dim_produto_dag',
     start_date=datetime(2025, 9, 24),
     schedule=None,
     catchup=False,
-    tags=['dim_produto']
+    tags=['dim_produto'],
+    description='Geração de dados sintéticos para a dimensão produto com variações de nome e categoria'
 ) as dag:
 
     inicio = EmptyOperator(task_id='inicio')
